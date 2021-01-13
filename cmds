@@ -1,0 +1,4 @@
+sudo ./run_mininet.py --num-hosts 2 --p4-file wcc.p4
+
+
+ ./controller.py --p4info firmeware.p4info.txt --bmv2-json wcc.json

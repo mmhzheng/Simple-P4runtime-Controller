@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright 2019 Belma Turkovic
 # TU Delft Embedded and Networked Systems Group.
 from mininet.net import Mininet
@@ -43,15 +44,32 @@ class SingleSwitchTopo(Topo):
         server =  self.addHost('s1', ip = "10.10.3.3/16", mac = '00:00:01:01:01:01')
         self.addLink(server, switch)
 
+
+class WccOneSwitechTopo(Topo):
+    "Single switch connected to n (< 256) hosts."
+    def __init__(self, sw_path, json_path, n, **opts):
+        # Initialize topology and default options
+        Topo.__init__(self, **opts)
+        switch = self.addSwitch('s0', sw_path = sw_path, json_path = json_path, grpc_port = 50051, device_id = 1, cpu_port='255')
+        
+        for h in xrange(n):
+            host = self.addHost('h%d' % (h + 1), ip = "10.10.10.%d/16" % (h + 1), mac = '00:04:00:00:00:%02x' %h)
+            self.addLink(host, switch)
+
+
 def main():
     num_hosts = int(args.num_hosts)
     result = os.system("p4c --target bmv2 --arch v1model --p4runtime-files firmeware.p4info.txt "+ args.p4_file)
     p4_file = args.p4_file.split('/')[-1]
     json_file = p4_file.split('.')[0] + ".json"
 
-    topo = SingleSwitchTopo("simple_switch_grpc",
+    # topo = SingleSwitchTopo("simple_switch_grpc",
+    #                         json_file,
+    #                         num_hosts)
+    topo = WccOneSwitechTopo("simple_switch_grpc",
                             json_file,
                             num_hosts)
+    
     net = Mininet(topo = topo,
                   host = P4Host,
                   switch = P4GrpcSwitch,
@@ -80,7 +98,10 @@ def main():
 
     print "Starting mininet!"
 
-    CLI(net)
+    try:
+        CLI(net)
+    except:
+        net.stop()
 
 if __name__ == '__main__':
     setLogLevel( 'info' )

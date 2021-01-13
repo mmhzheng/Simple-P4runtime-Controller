@@ -75,7 +75,7 @@ struct headers {
     packet_out_t packetout;
     ethernet_t   ethernet;
     ipv4_t       ipv4;
-    //tcp_t        tcp;
+    tcp_t        tcp;
 }
 
 
@@ -109,7 +109,14 @@ parser MyParser(packet_in packet,
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
-	transition accept;
+        transition select(hdr.ipv4.protocol) {
+            TYPE_TCP: parse_tcp;
+            default: accept;
+        }
+    }
+    state parse_tcp {
+        packet.extract(hdr.tcp);
+        transition accept;
     }
 
 }

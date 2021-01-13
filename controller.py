@@ -16,6 +16,9 @@ import bmv2
 from switch import ShutdownAllSwitchConnections
 import helper
 
+
+entry_list = []
+
 def writeIpv4Rules(p4info_helper, sw_id, dst_ip_addr, port):
     table_entry = p4info_helper.buildTableEntry(
         table_name="MyIngress.ipv4_lpm",
@@ -60,7 +63,7 @@ def printGrpcError(e):
     traceback = sys.exc_info()[2]
     print "[%s:%d]" % (traceback.tb_frame.f_code.co_filename, traceback.tb_lineno)
 
-def main(p4info_file_path, bmv2_file_path):
+def main(p4info_file_path, bmv2_file_path, num_hosts):
     # Instantiate a P4Runtime helper from the p4info file
     p4info_helper = helper.P4InfoHelper(p4info_file_path)
 
@@ -85,24 +88,38 @@ def main(p4info_file_path, bmv2_file_path):
         print "Installed P4 Program using SetForwardingPipelineConfig on s1"
 
         # Forward all packet to the controller (CPU_PORT 255)
-        writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.10.1", port = 255)
-        writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.10.2", port = 255)
-        writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.3.3",  port = 255)
-	#read all table rules         
-	readTableRules(p4info_helper, s1)
-        while True:
+        # writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.10.1", port = 255)
+        # writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.10.2", port = 255)
+        # writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.3.3",  port = 255)
+        ip_addr = [  ## using "10.10.10.%d/16" % (h + 1) will cause encoding error.
+            "10.10.10.1", "10.10.10.2", "10.10.10.3",
+            "10.10.10.4", "10.10.10.5", "10.10.10.6",
+            "10.10.10.7", "10.10.10.8", "10.10.10.9",
+            "10.10.10.10"
+        ]
 
+        for h in range(num_hosts):
+            writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr=ip_addr[h], port = h+1)
+        # writeIpv4Rules(p4info_helper, sw_id=s1, dst_ip_addr="10.10.3.3",  port = 255)
+
+	       #read all table rules         
+        readTableRules(p4info_helper, s1)
+        while True:
             packetin = s1.PacketIn()	    #Packet in! 
-	    if packetin is not None:
-	    	print "PACKET IN received"
-	    	print packetin
-	    packet = packetin.packet.payload
-            packetout = p4info_helper.buildPacketOut(
-                payload = packet, #send the packet in you received back to output port 3!
-                metadata = {1: "\000\003"} #egress_spec (check @controller_header("packet_out") in the p4 code)
-       	    )
-	    print "send PACKET OUT"
-	    print s1.PacketOut(packetout)
+            if packetin is not None:
+                pass
+            #     print "PACKET IN received"
+            #     print packetin
+            #     packet = packetin.packet.payload
+            #     packetout = p4info_helper.buildPacketOut(
+            #         payload = packet, #send the packet in you received back to output port 3!
+            #         metadata = {1: "\000\003"} #egress_spec (check @controller_header("packet_out") in the p4 code)
+            #     )
+            #     print "send PACKET OUT"
+            #     print s1.PacketOut(packetout)
+
+            ## Read Registers
+
 
 
     except KeyboardInterrupt:
@@ -119,7 +136,9 @@ if __name__ == '__main__':
                         default='./firmeware.p4info.txt')
     parser.add_argument('--bmv2-json', help='BMv2 JSON file from p4c',
                         type=str, action="store", required=False,
-                        default='./simple.json')
+                        default='./wcc.json')
+    parser.add_argument('--num-hosts', help='Number of hosts to connect to switch', type=int, action="store", default=2)
+
     args = parser.parse_args()
 
     if not os.path.exists(args.p4info):
@@ -130,4 +149,4 @@ if __name__ == '__main__':
         parser.print_help()
         print "\nBMv2 JSON file not found!" % args.bmv2_json
         parser.exit(2)
-    main(args.p4info, args.bmv2_json)
+    main(args.p4info, args.bmv2_json, args.num_hosts)
